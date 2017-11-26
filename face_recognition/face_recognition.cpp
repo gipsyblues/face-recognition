@@ -12,6 +12,7 @@
 #include<iostream>
 #include<string>
 #include<Eigen/Dense>
+#include<Eigen/Eigenvalues>
 
 using namespace cv;
 using namespace std;
@@ -20,6 +21,7 @@ using Eigen::MatrixXd;
 MatrixXd image2Matrix(vector<string> paths);
 MatrixXd meanFace(MatrixXd m); 
 MatrixXd subtractMeanFace(MatrixXd m, MatrixXd mean);
+MatrixXd getEigenvectors(MatrixXd A); 
 
 /*
  * This function takes a vector of n image file paths,
@@ -79,14 +81,40 @@ MatrixXd subtractMeanFace(MatrixXd m, MatrixXd mean) {
     return m;
 }
 
+MatrixXd getEigenvectors(MatrixXd A) {
+    MatrixXd AT = A.transpose();
+    MatrixXd L = AT * A;
+    
+    // compute eigenvectors of L
+    Eigen::EigenSolver<MatrixXd> es (L);
+    MatrixXd V (L.rows(), L.cols());
+    for (int i = 0; i < V.rows(); i++) {
+	for (int j = 0; j < V.cols(); j++) {
+	    V(i, j) = es.eigenvectors().col(j)[i].real();
+	}
+    }
+
+    MatrixXd U = A * V;
+    return U;
+}
+
 
 int main(int argc, char** argv) {
     cout << "hello world" << endl;
 
-    MatrixXd m (3, 2);
-    m(0,0) = 3;
-    m(1,0) = 2;
-    m(0,1) = 1;
-    m(1,1) = 0;
+    MatrixXd m (2, 2);
+    m(0,0) = 2;
+    m(1,0) = 3;
+    m(0,1) = 4;
+    m(1,1) = 13;
     cout << m << endl;
+
+    MatrixXd ev (2, 2);
+    Eigen::EigenSolver<MatrixXd> es (m);
+    for (int i = 0; i < ev.rows(); i++) {
+	for (int j = 0; j < ev.cols(); j++) {
+	    ev(i, j) = es.eigenvectors().col(j)[i].real();
+	}
+    }
+    cout << ev << endl;
 }

@@ -1063,6 +1063,8 @@ string
 -
 Eigen/Dense
 -
+Eigen/Eigenvalues
+-
 
 /usr/local/include/opencv/cxcore.h
 opencv2/core/core_c.h
