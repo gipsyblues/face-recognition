@@ -22,6 +22,10 @@ MatrixXd image2Matrix(vector<string> paths);
 MatrixXd meanFace(MatrixXd m); 
 MatrixXd subtractMeanFace(MatrixXd m, MatrixXd mean);
 MatrixXd getEigenvectors(MatrixXd A); 
+void displayEigenfaces(MatrixXd U);
+
+int trow = 231;	    // height and width of training images
+int tcol = 195;
 
 /*
  * This function takes a vector of n image file paths,
@@ -34,6 +38,9 @@ MatrixXd image2Matrix(vector<string> paths) {
     Mat image = imread(path, IMREAD_GRAYSCALE);
     int length = image.rows * image.cols;
 
+//    namedWindow("Display window", WINDOW_AUTOSIZE);
+//    moveWindow("Display window", 20, 20);
+
     MatrixXd res (length, imgN);
     for (int i = 0; i < imgN; i++) {
 	path = paths[i];
@@ -41,6 +48,8 @@ MatrixXd image2Matrix(vector<string> paths) {
 	for (int j = 0; j < length; j++) {
 	    res(j, i) = image.at<uchar>(j / image.cols, j % image.cols);
 	}
+//	imshow("Display window", image);
+//	waitKey(0);
     }
     return res;
 }
@@ -84,26 +93,35 @@ MatrixXd subtractMeanFace(MatrixXd m, MatrixXd mean) {
 MatrixXd getEigenvectors(MatrixXd A) {
     MatrixXd AT = A.transpose();
     MatrixXd L = AT * A;
-    
+
     // compute eigenvectors of L
     Eigen::EigenSolver<MatrixXd> es (L);
-    MatrixXd V (L.rows(), L.cols());
-    for (int i = 0; i < V.rows(); i++) {
-	for (int j = 0; j < V.cols(); j++) {
-	    V(i, j) = es.eigenvectors().col(j)[i].real();
-	}
-    }
+    MatrixXd V = es.pseudoEigenvectors();
 
     MatrixXd U = A * V;
     return U;
 }
 
+void displayEigenfaces(MatrixXd U) {
+    namedWindow("Display window", WINDOW_AUTOSIZE);
+    moveWindow("Display window", 20, 20);
+    
+    for (int i = 0; i < U.cols(); i++) {
+	Mat image = Mat(trow, tcol, CV_8UC1, 0.0);
+	for (int j = 0; j < U.rows(); j++) {
+	    image.at<uchar>(j / tcol, j % tcol) = U(j, i);
+	}
+	imshow("Display window", image);
+	waitKey(0);
+    }
+
+}
 
 int main(int argc, char** argv) {
     cout << "hello world" << endl;
 
     MatrixXd m (2, 2);
-    m(0,0) = 2;
+    m(0,0) = 5;
     m(1,0) = 3;
     m(0,1) = 4;
     m(1,1) = 13;
@@ -111,10 +129,34 @@ int main(int argc, char** argv) {
 
     MatrixXd ev (2, 2);
     Eigen::EigenSolver<MatrixXd> es (m);
+
     for (int i = 0; i < ev.rows(); i++) {
 	for (int j = 0; j < ev.cols(); j++) {
 	    ev(i, j) = es.eigenvectors().col(j)[i].real();
 	}
     }
     cout << ev << endl;
+
+    cout << es.pseudoEigenvectors();
+
+
+    vector<string> trainings  { "../training_images/subject01.normal.jpg",
+				"../training_images/subject02.normal.jpg",
+			        "../training_images/subject03.normal.jpg",
+				"../training_images/subject07.normal.jpg",
+				"../training_images/subject10.normal.jpg",
+				"../training_images/subject11.normal.jpg",
+				"../training_images/subject14.normal.jpg",
+				"../training_images/subject15.normal.jpg"};
+    
+    // load images and create matrix
+    MatrixXd matrix = image2Matrix(trainings);
+    // compute the mean face
+    MatrixXd meanface = meanFace(matrix); 
+    // subtract mean face from each vector in the matrix
+    MatrixXd A = subtractMeanFace(matrix, meanface);
+    // compute eigenvectors from the matrix A
+    MatrixXd U = getEigenvectors(A);
+    cout << A << endl;
+    displayEigenfaces(U);
 }
