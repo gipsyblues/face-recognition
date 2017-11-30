@@ -67,9 +67,9 @@ MatrixXd meanFace(MatrixXd m) {
     int col = m.cols();
     MatrixXd res (row, 1);  
     // sum up the value in each row
-    for (int i = 0; i < col; i++) {
-	for (int j = 0; j < row; j++) {
-	    res(j, 0) += m(j, i);
+    for (int i = 0; i < row; i++) {
+	for (int j = 0; j < col; j++) {
+	    res(i, 0) += m(i, j);
 	}
     }
     // divide by col to get mean
@@ -104,7 +104,6 @@ MatrixXd getEigenvectors(MatrixXd A) {
     // compute eigenvectors of L
     Eigen::EigenSolver<MatrixXd> es (L);
     MatrixXd V = es.pseudoEigenvectors();
-
     MatrixXd U = A * V;
     return U;
 }
@@ -202,10 +201,8 @@ int main(int argc, char** argv) {
     m(0,1) = 4;
     m(1,1) = 13;
     cout << m << endl;
+    
 
-    MatrixXd c = m.col(0);
-    MatrixXd r = m.row(1);
-    cout << c * r << endl;
 
     vector<string> trainings  { "../training_images/subject01.normal.jpg",
 				"../training_images/subject02.normal.jpg",
@@ -234,7 +231,7 @@ int main(int argc, char** argv) {
 			    "../test_images/subject14.normal.jpg",
 			    "../test_images/subject14.sad.jpg",
 			    "../test_images/subject15.normal.jpg"};
-
+/*
     // load training images and create matrix
     MatrixXd matrix = image2Matrix(trainings);
     // compute the mean face
@@ -257,5 +254,5 @@ int main(int argc, char** argv) {
     vector<MatrixXd> OtestImages = matrix2Vectors(testImages);
     // compute distance between input face image and its reconstruction
     vector<double> d0 = getDistance(RtestImages, OtestImages);
-    
+*/
 }
