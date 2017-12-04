@@ -18,6 +18,11 @@ using namespace cv;
 using namespace std;
 using Eigen::MatrixXd;
 
+struct ClassificationResult {
+    int classification;
+    double distance;
+};
+
 MatrixXd image2Matrix(vector<string> paths);
 MatrixXd meanFace(MatrixXd m); 
 MatrixXd subtractMeanFace(MatrixXd m, MatrixXd mean);
@@ -27,6 +32,7 @@ vector<MatrixXd> getFeatureCoefficient(MatrixXd U, MatrixXd A);
 vector<MatrixXd> matrix2Vectors (MatrixXd matrix); 
 vector<MatrixXd> reconstructFace (MatrixXd U, vector<MatrixXd> testsFC); 
 vector<double> getDistance(vector<MatrixXd> a, vector<MatrixXd> b); 
+vector<ClassificationResult> classify(vector<MatrixXd> FC, vector<MatrixXd> testFC); 
 
 int trow = 231;	    // height and width of training images
 int tcol = 195;
@@ -192,6 +198,33 @@ vector<double> getDistance(vector<MatrixXd> a, vector<MatrixXd> b) {
     return res;
 }
 
+
+vector<ClassificationResult> classify(vector<MatrixXd> FC, vector<MatrixXd> testFC) {
+    vector<ClassificationResult> res;
+    for (int i = 0; i < testFC.size(); i++) {
+	int classification = -1;
+	double minDiff = DBL_MAX;
+	for (int j = 0; j < FC.size(); j++) {
+	    double diff = 0;
+	    for (int k = 0; k < FC[j].rows(); k++) {  // compute distance
+		diff += pow(testFC[i](k, 0) - FC[j](k, 0), 2);
+	    }
+	    diff = sqrt(diff);
+	    if (diff < minDiff) {
+		minDiff = diff;
+		classification = j;
+	    }
+	}
+	ClassificationResult cr = {
+	    classification,
+	    minDiff,
+	};
+	res.push_back(cr);
+    }
+    return res;
+}
+
+
 int main(int argc, char** argv) {
     cout << "hello world" << endl;
 
@@ -231,7 +264,7 @@ int main(int argc, char** argv) {
 			    "../test_images/subject14.normal.jpg",
 			    "../test_images/subject14.sad.jpg",
 			    "../test_images/subject15.normal.jpg"};
-/*
+
     // load training images and create matrix
     MatrixXd matrix = image2Matrix(trainings);
     // compute the mean face
@@ -254,5 +287,16 @@ int main(int argc, char** argv) {
     vector<MatrixXd> OtestImages = matrix2Vectors(testImages);
     // compute distance between input face image and its reconstruction
     vector<double> d0 = getDistance(RtestImages, OtestImages);
-*/
+    
+    for (vector<double>::iterator it = d0.begin(); it != d0.end(); ++it) {
+	cout << *it << endl;
+    }
+    vector<ClassificationResult> CR = classify(FC, testsFC);
+    for (int i = 0; i < CR.size(); i++) {
+	cout << tests[i].substr(15, tests[i].size()) << ":" << endl;
+	string subject = trainings[CR[i].classification];
+	subject = subject.substr(subject.find("subject"), 9);
+	cout << "=>" << subject << "  " << "distance = " << CR[i].distance << endl;
+	cout << "--------------------------------------------------------------" << endl;
+    }
 }
