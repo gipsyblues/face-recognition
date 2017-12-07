@@ -123,12 +123,18 @@ void displayEigenfaces(MatrixXd U) {
     namedWindow("Display window", WINDOW_AUTOSIZE);
     moveWindow("Display window", 20, 20);
     
-    cout << U << endl;
-
     for (int i = 0; i < U.cols(); i++) {
+	double maxU = DBL_MIN;
+	double minU = DBL_MAX;
+	for (int j = 0; j < U.rows(); j++) {
+	    maxU = max(maxU, U(j, i));
+	    minU = min(minU, U(j, i));
+	}
+
 	Mat image = Mat(trow, tcol, CV_8UC1, 0.0);
 	for (int j = 0; j < U.rows(); j++) {
-	    image.at<uchar>(j / tcol, j % tcol) = (uchar) abs(U(j, i));
+//	    image.at<uchar>(j / tcol, j % tcol) = (uchar) abs(U(j, i));
+	    image.at<uchar>(j / tcol, j % tcol) = (uchar) ((U(j, i) - minU) / (maxU - minU) * 255);
 	}
 	imshow("Display window", image);
 	waitKey(0);
@@ -273,7 +279,7 @@ int main(int argc, char** argv) {
     MatrixXd A = subtractMeanFace(matrix, meanface);
     // compute eigenvectors from the matrix A
     MatrixXd U = getEigenvectors(A);
-    //displayEigenfaces(U);
+    displayEigenfaces(U);
     vector<MatrixXd> FC = getFeatureCoefficient(U, A);
 
     // load test images and create matrix
