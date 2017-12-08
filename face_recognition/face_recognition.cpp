@@ -18,6 +18,9 @@ using namespace cv;
 using namespace std;
 using Eigen::MatrixXd;
 
+#define DISPLAY false
+#define OUTPUT_IMAGE false
+
 struct ClassificationResult {
     int classification;
     double distance;
@@ -27,12 +30,13 @@ MatrixXd image2Matrix(vector<string> paths);
 MatrixXd meanFace(MatrixXd m); 
 MatrixXd subtractMeanFace(MatrixXd m, MatrixXd mean);
 MatrixXd getEigenvectors(MatrixXd A); 
-void displayEigenfaces(MatrixXd U);
+void displayFace(MatrixXd U, string name);
 vector<MatrixXd> getFeatureCoefficient(MatrixXd U, MatrixXd A); 
 vector<MatrixXd> matrix2Vectors (MatrixXd matrix); 
 vector<MatrixXd> reconstructFace (MatrixXd U, vector<MatrixXd> testsFC); 
 vector<double> getDistance(vector<MatrixXd> a, vector<MatrixXd> b); 
 vector<ClassificationResult> classify(vector<MatrixXd> FC, vector<MatrixXd> testFC); 
+void showClassification(vector<ClassificationResult> CR, vector<double> d0, vector<string> trainings, vector<string> tests, double T0, double T1); 
 
 int trow = 231;	    // height and width of training images
 int tcol = 195;
@@ -116,10 +120,11 @@ MatrixXd getEigenvectors(MatrixXd A) {
 
 /*
  * This function takes eigenvectors matrix as input,
- * and display each row as a image.
- * Note that we take absolute value of the vector values.
+ * and display and save each row as a image.
+ * The second argument is the name of output file(s).
+ * Note that we normalize the vector values to 0-255.
  */
-void displayEigenfaces(MatrixXd U) {
+void displayFace(MatrixXd U, string name) {
     namedWindow("Display window", WINDOW_AUTOSIZE);
     moveWindow("Display window", 20, 20);
     
@@ -133,11 +138,15 @@ void displayEigenfaces(MatrixXd U) {
 
 	Mat image = Mat(trow, tcol, CV_8UC1, 0.0);
 	for (int j = 0; j < U.rows(); j++) {
-//	    image.at<uchar>(j / tcol, j % tcol) = (uchar) abs(U(j, i));
 	    image.at<uchar>(j / tcol, j % tcol) = (uchar) ((U(j, i) - minU) / (maxU - minU) * 255);
 	}
-	imshow("Display window", image);
-	waitKey(0);
+	if (DISPLAY) {
+	    imshow("Display window", image);
+	    waitKey(0);
+	}
+	if (OUTPUT_IMAGE) {
+	    imwrite("../output_images/" + name + to_string(i) + ".jpg", image);
+	}
     }
 }
 
@@ -153,11 +162,13 @@ vector<MatrixXd> getFeatureCoefficient(MatrixXd U, MatrixXd A) {
 	MatrixXd Ri = A.col(i);
 	fc.push_back(UT * Ri);
     }
-/*
-    for (int i = 0; i < imgN; i++) {
+
+    cout << "Here are the PCA cooefficient for each image:" << endl;
+    for (int i = 0; i < imgN; i++) {	
+	cout << "Image " + to_string(i) << endl;
 	cout << fc[i] << endl << endl;
     }
-*/
+
     return fc;
 }
 
@@ -199,15 +210,19 @@ vector<double> getDistance(vector<MatrixXd> a, vector<MatrixXd> b) {
 	    diff += pow(ai(j, 0) - bi(j, 0), 2);
 	}
 	res.push_back(sqrt(diff));
-	cout << res[i] << endl;
     }    
     return res;
 }
 
-
+/*
+ * Compute distance between input face and training images in the face space,
+ * and classify each input face into one of the training images where the 
+ * distance in feature coefficient is minimal.
+ */
 vector<ClassificationResult> classify(vector<MatrixXd> FC, vector<MatrixXd> testFC) {
     vector<ClassificationResult> res;
     for (int i = 0; i < testFC.size(); i++) {
+	cout << "Compute di for test image " + to_string(i) << endl;
 	int classification = -1;
 	double minDiff = DBL_MAX;
 	for (int j = 0; j < FC.size(); j++) {
@@ -216,11 +231,13 @@ vector<ClassificationResult> classify(vector<MatrixXd> FC, vector<MatrixXd> test
 		diff += pow(testFC[i](k, 0) - FC[j](k, 0), 2);
 	    }
 	    diff = sqrt(diff);
+	    cout << "d" << j << "=" << diff << endl;
 	    if (diff < minDiff) {
 		minDiff = diff;
 		classification = j;
 	    }
 	}
+	cout << endl;
 	ClassificationResult cr = {
 	    classification,
 	    minDiff,
@@ -230,18 +247,25 @@ vector<ClassificationResult> classify(vector<MatrixXd> FC, vector<MatrixXd> test
     return res;
 }
 
-
-int main(int argc, char** argv) {
-    cout << "hello world" << endl;
-
-    MatrixXd m (2, 2);
-    m(0,0) = 5;
-    m(1,0) = 3;
-    m(0,1) = 4;
-    m(1,1) = 13;
-    cout << m << endl;
+void showClassification(vector<ClassificationResult> CR, vector<double> d0, vector<string> trainings, vector<string> tests, double T0, double T1) {
+    for (int i = 0; i < CR.size(); i++) {
+	cout << tests[i].substr(15, tests[i].size()) << ":" << endl;
+	cout << "d0 = " << d0[i] << endl;
+	if (d0[i] < T0) {
+	    cout << "Classify--> NOT a face image" << endl;
+	} else if (CR[i].distance < T1) {
+	    string subject = trainings[CR[i].classification];
+	    subject = subject.substr(subject.find("subject"), 9);
+	    cout << "Classify-->" << subject << "  " << "distance = " << CR[i].distance << endl;
+	} else {
+	    cout << "Classify--> Unknown face" << endl;
+	}
+	cout << endl << "--------------------------------------------------------------" << endl;
+    }
+}
     
 
+int main(int argc, char** argv) {
 
     vector<string> trainings  { "../training_images/subject01.normal.jpg",
 				"../training_images/subject02.normal.jpg",
@@ -273,36 +297,34 @@ int main(int argc, char** argv) {
 
     // load training images and create matrix
     MatrixXd matrix = image2Matrix(trainings);
-    // compute the mean face
+    // compute and display the mean face
     MatrixXd meanface = meanFace(matrix); 
+    displayFace(meanface, "meanface");
     // subtract mean face from each vector in the matrix
     MatrixXd A = subtractMeanFace(matrix, meanface);
     // compute eigenvectors from the matrix A
     MatrixXd U = getEigenvectors(A);
-    displayEigenfaces(U);
+    // display Eigenface
+    displayFace(U, "eigenface");
     vector<MatrixXd> FC = getFeatureCoefficient(U, A);
 
     // load test images and create matrix
     MatrixXd testImages = image2Matrix(tests);
     // subtract mean face from each test image vector
     testImages = subtractMeanFace(testImages, meanface);
+    displayFace(testImages, "test-mean");
     // compute test images' projection onto face space
     vector<MatrixXd> testsFC = getFeatureCoefficient(U, testImages);
     // reconstruct input faces from eigenfaces
     vector<MatrixXd> RtestImages = reconstructFace(U, testsFC);
+    for (int i = 0; i < RtestImages.size(); i++) {
+	displayFace(RtestImages[i], "reconstructed" + to_string(i) + "-");
+    }
     vector<MatrixXd> OtestImages = matrix2Vectors(testImages);
     // compute distance between input face image and its reconstruction
     vector<double> d0 = getDistance(RtestImages, OtestImages);
-    
-    for (vector<double>::iterator it = d0.begin(); it != d0.end(); ++it) {
-	cout << *it << endl;
-    }
     vector<ClassificationResult> CR = classify(FC, testsFC);
-    for (int i = 0; i < CR.size(); i++) {
-	cout << tests[i].substr(15, tests[i].size()) << ":" << endl;
-	string subject = trainings[CR[i].classification];
-	subject = subject.substr(subject.find("subject"), 9);
-	cout << "=>" << subject << "  " << "distance = " << CR[i].distance << endl;
-	cout << "--------------------------------------------------------------" << endl;
-    }
+    double T0 = 1000000000000;
+    double T1 = 86500000;
+    showClassification(CR, d0, trainings, tests, T0, T1);
 }
