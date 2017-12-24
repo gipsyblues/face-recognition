@@ -28,7 +28,7 @@ make
 
 If it doesn’t work, you might want to modify the CMakeLists.txt first by doing:
 ```
-cmake.
+cmake .
 ```
 
 Then try “make” again.
